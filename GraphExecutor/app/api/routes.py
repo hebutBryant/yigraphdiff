@@ -1,6 +1,12 @@
 """API 路由定义"""
 
-import torch
+try:
+    import torch
+    _TORCH_AVAILABLE = True
+except ImportError:  # torch 是可选依赖，仅用于 GPU 检测
+    torch = None
+    _TORCH_AVAILABLE = False
+
 from fastapi import APIRouter, HTTPException, File, UploadFile
 from fastapi.responses import FileResponse
 from typing import Optional
@@ -26,7 +32,7 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse, summary="健康检查")
 async def health_check():
     """检查服务健康状态"""
-    gpu_available = torch.cuda.is_available()
+    gpu_available = bool(_TORCH_AVAILABLE and torch.cuda.is_available())
 
     return HealthResponse(
         status="healthy",
@@ -224,13 +230,19 @@ async def generate_image(request: GenerationRequest):
 
         scene_graph_output = graph_service.scene_graph_to_output(scene_graph)
 
+        # 获取任务状态（可能已经完成或正在处理）
+        task_status = graph_service.get_task_status(task_id)
+        status = task_status.get("status", "pending")
+        image_url = task_status.get("image_url")
+        message = task_status.get("message", "任务已创建")
+
         return GenerationResponse(
             task_id=task_id,
-            status="pending",
-            image_url=None,  # 实际实现中会在生成完成后提供
+            status=status,
+            image_url=image_url,
             visualization_url=str(visualization_path) if visualization_path else None,
             scene_graph=scene_graph_output,
-            message="任务已创建。注意：完整的图像生成需要 FLUX 模型支持。"
+            message=message
         )
 
     except HTTPException:
@@ -251,7 +263,7 @@ async def get_task_status(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail=f"任务 {task_id} 不存在")
 
-    # 不返回内部对象，只返回可序列化的信息
+    # 返回完整的任务信息
     return {
         "task_id": task["id"],
         "status": task["status"],
@@ -259,4 +271,8 @@ async def get_task_status(task_id: str):
         "prompt": task.get("prompt"),
         "width": task.get("width"),
         "height": task.get("height"),
+        "image_url": task.get("image_url"),
+        "image_path": task.get("image_path"),
+        "error": task.get("error"),
+        "message": task.get("message"),
     }

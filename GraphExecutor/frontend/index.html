@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphExecutor · 提示词 → 场景图 → 图像</title>
+<link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo"></span> GraphExecutor</div>
+  <div class="status"><span id="health-dot" class="health-dot"></span>
+    <span id="health-text">检查服务中…</span></div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="field">
+      <label>复杂提示词</label>
+      <textarea id="prompt" placeholder="例如：一位服务员在咖啡馆的桌前为两位顾客上菜，一个孩子望向窗外"></textarea>
+    </div>
+    <div class="examples" id="examples"></div>
+
+    <div class="row">
+      <div class="field"><label>宽度</label><input id="width" type="number" value="1024"></div>
+      <div class="field"><label>高度</label><input id="height" type="number" value="1024"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>推理步数</label><input id="steps" type="number" value="32"></div>
+      <div class="field"><label>引导强度</label><input id="guidance" type="number" step="0.5" value="3.5"></div>
+    </div>
+    <div class="field">
+      <label>布局图类型</label>
+      <select id="viz-type">
+        <option value="bbox_overlay">边界框叠加</option>
+        <option value="graph_structure">图结构</option>
+        <option value="grid">组合网格</option>
+      </select>
+    </div>
+
+    <button id="run-btn" class="btn btn-primary">生成场景图</button>
+    <div class="btn-row">
+      <button id="gen-btn" class="btn btn-ghost">生成图像</button>
+      <button id="example-btn" class="btn btn-ghost">示例</button>
+      <button id="export-btn" class="btn btn-ghost">导出 JSON</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="empty-state" class="placeholder">
+      <div class="big">🎨</div>
+      <div>输入一段复杂提示词，点击「生成场景图」<br>即可看到解析出的对象、关系与布局图</div>
+    </div>
+
+    <div id="result" style="display:none;height:100%;flex-direction:column">
+      <div class="stats">
+        <span>对象 <b id="stat-nodes">0</b></span>
+        <span>关系 <b id="stat-edges">0</b></span>
+        <span>画布 <b id="stat-canvas">—</b></span>
+      </div>
+      <div class="tabs">
+        <div class="tab active" data-tab="graph">场景图</div>
+        <div class="tab" data-tab="image">布局 / 图像</div>
+        <div class="tab" data-tab="bbox">边界框预览</div>
+        <div class="tab" data-tab="details">明细</div>
+      </div>
+      <div class="tab-content">
+        <div id="panel-graph" class="tab-panel active">
+          <div class="graph-wrap"><div id="graph-view"></div>
+            <div class="legend" id="legend">
+              <div class="legend-item"><span class="legend-line" style="background:#38bdf8"></span>空间</div>
+              <div class="legend-item"><span class="legend-line" style="background:#34d399"></span>接触</div>
+              <div class="legend-item"><span class="legend-line" style="background:#fbbf24"></span>注视</div>
+              <div class="legend-item"><span class="legend-line" style="background:#a78bfa"></span>反射</div>
+              <div class="legend-item"><span class="legend-line" style="background:#fb923c"></span>光照</div>
+              <div class="legend-item"><span class="legend-line" style="background:#f87171"></span>负向(虚线)</div>
+            </div></div>
+        </div>
+        <div id="panel-image" class="tab-panel">
+          <div class="image-panel">
+            <img id="layout-img" alt="布局图">
+            <div id="img-hint" class="node-count"></div>
+          </div>
+        </div>
+        <div id="panel-bbox" class="tab-panel">
+          <div id="bbox-view"></div>
+        </div>
+        <div id="panel-details" class="tab-panel">
+          <div class="section-title">对象节点</div>
+          <div id="nodes-detail"></div>
+          <div class="section-title" style="margin-top:18px">关系边</div>
+          <div id="edges-detail"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="overlay" class="overlay"><div class="spinner"></div><div id="overlay-msg"></div></div>
+<div id="toast" class="toast"></div>
+<script src="/frontend/app.js"></script>
+</body>
+</html>

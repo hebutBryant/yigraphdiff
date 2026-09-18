@@ -19,3 +19,9 @@ python-dotenv==1.0.0
 # 深度学习（可选 - 仅用于完整图像生成）
 # torch>=2.0.0
 # 如需 GPU 支持，安装: pip install torch --index-url https://download.pytorch.org/whl/cu118
+
+# FLUX 图像生成（可选）
+diffusers>=0.25.0
+transformers>=4.36.0
+accelerate>=0.25.0
+sentencepiece>=0.1.99

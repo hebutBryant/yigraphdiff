@@ -21,6 +21,14 @@ from graphexecutor.visualization import (
 from app.models.schemas import SceneGraphInput, SceneGraphOutput, NodeOutput, EdgeOutput
 import config
 
+# 尝试导入 FLUX 生成器（可选）
+try:
+    from graphexecutor.flux_generator import generate_image, get_generator
+    _FLUX_AVAILABLE = True
+except Exception as e:
+    print(f"[Service] FLUX 生成器不可用: {e}")
+    _FLUX_AVAILABLE = False
+
 
 class GraphService:
     """场景图服务"""
@@ -261,7 +269,69 @@ class GraphService:
             **kwargs
         }
 
+        # 如果 FLUX 可用，异步生成图像
+        if _FLUX_AVAILABLE and scene_graph:
+            try:
+                self._run_generation_async(task_id, scene_graph, width, height, **kwargs)
+            except Exception as e:
+                print(f"[Service] 图像生成失败: {e}")
+                self.tasks[task_id]["status"] = "failed"
+                self.tasks[task_id]["error"] = str(e)
+        else:
+            # FLUX 不可用，只返回布局图
+            self.tasks[task_id]["status"] = "completed"
+            self.tasks[task_id]["message"] = "FLUX 模型未加载，仅生成布局图"
+
         return task_id
+
+    def _run_generation_async(
+        self,
+        task_id: str,
+        scene_graph: SceneGraph,
+        width: int,
+        height: int,
+        **kwargs
+    ):
+        """异步运行图像生成"""
+        import threading
+
+        def generate():
+            try:
+                print(f"[Service] 开始生成任务 {task_id}")
+                self.tasks[task_id]["status"] = "processing"
+
+                # 调用 FLUX 生成
+                image = generate_image(
+                    scene_graph=scene_graph,
+                    width=width,
+                    height=height,
+                    num_inference_steps=kwargs.get("num_inference_steps", 32),
+                    guidance_scale=kwargs.get("guidance_scale", 3.5),
+                    seed=kwargs.get("seed"),
+                    control_mode=kwargs.get("control_mode", "graph_executor"),
+                )
+
+                # 保存图像
+                output_path = self.output_dir / f"generated_{task_id}.png"
+                image.save(output_path)
+
+                # 更新任务状态
+                self.tasks[task_id]["status"] = "completed"
+                self.tasks[task_id]["image_path"] = str(output_path)
+                self.tasks[task_id]["image_url"] = f"/outputs/generated_{task_id}.png"
+
+                print(f"[Service] 任务 {task_id} 完成")
+
+            except Exception as e:
+                print(f"[Service] 任务 {task_id} 失败: {e}")
+                import traceback
+                traceback.print_exc()
+                self.tasks[task_id]["status"] = "failed"
+                self.tasks[task_id]["error"] = str(e)
+
+        # 在后台线程运行
+        thread = threading.Thread(target=generate, daemon=True)
+        thread.start()
 
     def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取任务状态

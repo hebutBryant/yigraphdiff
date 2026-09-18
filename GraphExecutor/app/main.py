@@ -1,15 +1,20 @@
 """GraphExecutor FastAPI 应用主入口"""
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import sys
 
-# 添加项目根目录到 Python 路径
+# 添加项目根目录到 Python 路径（必须在所有导入之前）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# 移除可能冲突的 GraphDiff 路径
+sys.path = [p for p in sys.path if 'GraphDiff' not in p]
+# 将当前项目路径插入到最前面
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.api.routes import router
 import config
@@ -91,20 +96,39 @@ app.add_middleware(
 if config.OUTPUT_DIR.exists():
     app.mount("/outputs", StaticFiles(directory=str(config.OUTPUT_DIR)), name="outputs")
 
+# 挂载前端静态资源（style.css / app.js 等）
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
+
 # 注册路由
 app.include_router(router, prefix="/api/v1", tags=["GraphExecutor"])
 
 
-@app.get("/", tags=["Root"])
+@app.get("/", tags=["Root"], include_in_schema=False)
 async def root():
-    """根路径 - 服务信息"""
+    """根路径 - 返回前端页面（若不存在则返回服务信息 JSON）"""
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
     return {
         "service": "GraphExecutor API",
         "version": "1.0.0",
         "description": "基于场景图的图像生成服务",
         "docs": "/docs",
         "health": "/api/v1/health",
-        "repository": "https://github.com/yourusername/graphexecutor"
+    }
+
+
+@app.get("/api", tags=["Root"])
+async def api_info():
+    """服务信息"""
+    return {
+        "service": "GraphExecutor API",
+        "version": "1.0.0",
+        "description": "基于场景图的图像生成服务",
+        "docs": "/docs",
+        "health": "/api/v1/health",
     }
 
 
@@ -131,9 +155,8 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        app,  # 直接传入 app 对象，不使用字符串
         host=config.HOST,
         port=config.PORT,
-        reload=True,
         log_level="info"
     )
