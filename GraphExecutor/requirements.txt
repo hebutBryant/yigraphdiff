@@ -1,0 +1,21 @@
+# Web 框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# 数据处理和可视化
+pillow>=10.0.0
+matplotlib>=3.7.0
+networkx>=3.1
+numpy>=1.24.0
+
+# HTTP 客户端
+requests>=2.31.0
+
+# 配置管理
+python-dotenv==1.0.0
+
+# 深度学习（可选 - 仅用于完整图像生成）
+# torch>=2.0.0
+# 如需 GPU 支持，安装: pip install torch --index-url https://download.pytorch.org/whl/cu118
